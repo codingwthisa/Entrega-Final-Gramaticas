@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Máquina de Turing: Suma Binaria</title>
+  <style>
+    body {
+      font-family: "Segoe UI", Roboto, sans-serif;
+      background: #f6f8fa;
+      text-align: center;
+      padding: 40px;
+      transition: background 0.3s ease, color 0.3s ease;
+    }
+
+    body.dark {
+      background: #1e1e1e;
+      color: #f0f0f0;
+    }
+
+    h2 {
+      color: #333;
+      margin-bottom: 10px;
+    }
+
+    body.dark h2 { color: #f0f0f0; }
+
+    input {
+      font-size: 16px;
+      padding: 8px 12px;
+      width: 220px;
+      border: 1px solid #bbb;
+      border-radius: 6px;
+      margin-bottom: 10px;
+    }
+
+    button {
+      padding: 10px 20px;
+      font-size: 16px;
+      border: none;
+      background: #007bff;
+      color: white;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background 0.3s ease;
+    }
+
+    button:hover {
+      background: #0056b3;
+    }
+
+    .toggle-mode {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      background: #333;
+      color: white;
+      padding: 5px 10px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+
+    .label-row {
+      display: flex;
+      justify-content: center;
+      font-size: 12px;
+      color: #555;
+      margin-top: 10px;
+    }
+
+    .label-cell {
+      width: 40px;
+      margin: 2px;
+      text-align: center;
+    }
+
+    .tape {
+      display: flex;
+      justify-content: center;
+      flex-wrap: wrap;
+      margin: 10px 0;
+      position: relative;
+    }
+
+    .cell {
+      width: 40px;
+      height: 40px;
+      border: 2px solid #444;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      margin: 2px;
+      border-radius: 8px;
+      transition: background 0.3s ease, transform 0.2s ease;
+      position: relative;
+    }
+
+    .highlight {
+      background: #ffc107 !important;
+      transform: scale(1.1);
+      box-shadow: 0 0 10px rgba(0,0,0,0.3);
+    }
+
+    .cell[data-role="sep"] { background: #e0e0e0; border-left: 3px solid #888; border-right: 3px solid #888; }
+    .cell[data-role="empty"] { background: #ddeeff; }
+    .cell[data-role="result"] { background: #e4fbe4; }
+    .cell[data-role="input-a"] { background: #ffffff; }
+    .cell[data-role="input-b"] { background: #f0f0ff; }
+
+    .head {
+      font-size: 18px;
+      margin-bottom: 10px;
+    }
+
+    #log {
+      max-width: 700px;
+      margin: 0 auto;
+      text-align: left;
+      font-size: 14px;
+      background: #ffffff;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      padding: 15px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+    }
+
+    body.dark #log {
+      background: #2a2a2a;
+      border-color: #444;
+      color: #ddd;
+    }
+
+    #log h3 {
+      margin-top: 0;
+      margin-bottom: 10px;
+      color: #007bff;
+    }
+
+    .log-entry {
+      margin-bottom: 6px;
+      border-left: 3px solid #007bff;
+      padding-left: 8px;
+    }
+  </style>
+</head>
+<body>
+
+<div class="toggle-mode" onclick="document.body.classList.toggle('dark')">🌓 Modo oscuro</div>
+
+<h2>Máquina de Turing: Suma Binaria</h2>
+<input id="entrada" placeholder="Ej: 1101#101" />
+<br>
+<button onclick="startSimulation()">Iniciar Simulación</button>
+<div id="head" class="head"></div>
+<div class="tape" id="tape"></div>
+<div class="label-row" id="labels"></div>
+<div id="log"></div>
+
+<script>
+  let steps = [], sepIndex = 0, writeStart = 0;
+
+  function recordStep(pos, tapeSnapshot, info) {
+    steps.push({ pos, tape: [...tapeSnapshot], info });
+  }
+
+  function simulate(input) {
+    let tape = ['_'].concat(input.split(''), ['_', '_', '_', '_', '_', '_', '_', '_', '_', '_']);
+    sepIndex = tape.indexOf('#');
+    let aPtr = sepIndex - 1;
+
+    let bStart = sepIndex + 1;
+    let bEnd = tape.findIndex((ch, i) => i > bStart && ch === '_') - 1;
+    if (bEnd < 0) bEnd = tape.length - 11 - 1;
+    let bPtr = bEnd;
+
+    let carry = 0;
+    let writePos = tape.length - 2;
+    writeStart = tape.length;
+
+    steps = [];
+
+    while (aPtr >= 0 || bPtr > sepIndex || carry) {
+      let bitA = (aPtr >= 0 && '01'.includes(tape[aPtr])) ? parseInt(tape[aPtr]) : 0;
+      let bitB = (bPtr > sepIndex && '01'.includes(tape[bPtr])) ? parseInt(tape[bPtr]) : 0;
+      let total = bitA + bitB + carry;
+      let sumBit = total % 2;
+      carry = Math.floor(total / 2);
+
+      tape[writePos] = sumBit.toString();
+      if (writePos < writeStart) writeStart = writePos;
+
+      recordStep(writePos, tape, `A=${bitA}, B=${bitB}, Carry=${carry}, Total=${total}, Write=${sumBit} → posición ${writePos}`);
+
+      aPtr--;
+      bPtr--;
+      writePos--;
+    }
+
+    return { tape, writeStart };
+  }
+
+  function drawTape(tapeState, headPos, info) {
+    const tapeDiv = document.getElementById('tape');
+    const labelRow = document.getElementById('labels');
+    tapeDiv.innerHTML = '';
+    labelRow.innerHTML = '';
+    const sep = tapeState.indexOf('#');
+
+    tapeState.forEach((val, idx) => {
+      const cell = document.createElement('div');
+      cell.className = 'cell';
+      if (idx === headPos) cell.classList.add('highlight');
+
+      if (val === '_') {
+        cell.dataset.role = 'empty';
+      } else if (val === '#') {
+        cell.dataset.role = 'sep';
+      } else if (idx > sep && idx < writeStart) {
+        cell.dataset.role = 'input-b';
+      } else if (idx < sep) {
+        cell.dataset.role = 'input-a';
+      } else if (idx >= writeStart) {
+        cell.dataset.role = 'result';
+      }
+
+      cell.textContent = val;
+      tapeDiv.appendChild(cell);
+
+      const label = document.createElement('div');
+      label.className = 'label-cell';
+      if (cell.dataset.role === 'input-a') label.textContent = 'A';
+      else if (cell.dataset.role === 'sep') label.textContent = '#';
+      else if (cell.dataset.role === 'input-b') label.textContent = 'B';
+      else if (cell.dataset.role === 'result') label.textContent = 'R';
+      else label.textContent = '';
+      labelRow.appendChild(label);
+    });
+
+    document.getElementById('head').textContent = info;
+  }
+
+  function renderLog() {
+    const logDiv = document.getElementById('log');
+    logDiv.innerHTML = "<h3>📝 Historial de Pasos</h3>";
+    steps.forEach((step, index) => {
+      const entry = document.createElement('div');
+      entry.className = "log-entry";
+      entry.textContent = `Paso ${index + 1}: ${step.info}`;
+      logDiv.appendChild(entry);
+    });
+  }
+
+  function startSimulation() {
+    const input = document.getElementById('entrada').value.trim();
+    if (!/^[01]+#[01]+$/.test(input)) {
+      alert("Entrada inválida. Usa el formato binario a#b (ej: 1101#101)");
+      return;
+    }
+
+    const { tape } = simulate(input);
+    let i = 0;
+    document.getElementById('log').innerHTML = "";
+
+    function nextStep() {
+      if (i < steps.length) {
+        const step = steps[i];
+        drawTape(step.tape, step.pos, `Paso ${i + 1}: ${step.info}`);
+        i++;
+        setTimeout(nextStep, 700);
+      } else {
+        const tapeFinal = steps[steps.length - 1].tape;
+        let resultBits = [];
+        for (let j = writeStart; j < tapeFinal.length; j++) {
+          if (tapeFinal[j] === '0' || tapeFinal[j] === '1') {
+            resultBits.push(tapeFinal[j]);
+          }
+        }
+
+        const resultBinary = resultBits.join('').replace(/^0+/, '') || '0';
+        const resultDecimal = parseInt(resultBinary, 2);
+
+        drawTape(tapeFinal, -1, `✅ Resultado final en la cinta: ${resultBinary} (decimal: ${resultDecimal})`);
+        renderLog();
+      }
+    }
+
+    nextStep();
+  }
+</script>
+
+</body>
+</html>
