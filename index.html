@@ -74,6 +74,10 @@
       text-align: center;
     }
 
+    body.dark .label-cell {
+      color: #aaa;
+    }
+
     .tape {
       display: flex;
       justify-content: center;
@@ -94,6 +98,12 @@
       border-radius: 8px;
       transition: background 0.3s ease, transform 0.2s ease;
       position: relative;
+      color: #000;
+    }
+
+    body.dark .cell {
+      color: #fff;
+      border-color: #888;
     }
 
     .highlight {
@@ -107,6 +117,12 @@
     .cell[data-role="result"] { background: #e4fbe4; }
     .cell[data-role="input-a"] { background: #ffffff; }
     .cell[data-role="input-b"] { background: #f0f0ff; }
+
+    body.dark .cell[data-role="sep"] { background: #444; }
+    body.dark .cell[data-role="empty"] { background: #2c3e50; }
+    body.dark .cell[data-role="result"] { background: #2ecc71; color: #000; }
+    body.dark .cell[data-role="input-a"] { background: #3b3b3b; }
+    body.dark .cell[data-role="input-b"] { background: #2e2e40; }
 
     .head {
       font-size: 18px;
@@ -127,7 +143,7 @@
 
     body.dark #log {
       background: #2a2a2a;
-      border-color: #444;
+      border-color: #555;
       color: #ddd;
     }
 
@@ -138,7 +154,7 @@
     }
 
     .log-entry {
-      margin-bottom: 6px;
+      margin-bottom: 8px;
       border-left: 3px solid #007bff;
       padding-left: 8px;
     }
@@ -168,7 +184,6 @@
     let tape = ['_'].concat(input.split(''), ['_', '_', '_', '_', '_', '_', '_', '_', '_', '_']);
     sepIndex = tape.indexOf('#');
     let aPtr = sepIndex - 1;
-
     let bStart = sepIndex + 1;
     let bEnd = tape.findIndex((ch, i) => i > bStart && ch === '_') - 1;
     if (bEnd < 0) bEnd = tape.length - 11 - 1;
