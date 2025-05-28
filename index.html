@@ -17,6 +17,11 @@
       color: #f0f0f0;
     }
 
+    #container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
     h2 {
       color: #333;
       margin-bottom: 10px;
@@ -34,8 +39,9 @@
     }
 
     button {
-      padding: 10px 20px;
-      font-size: 16px;
+      padding: 8px 16px;
+      font-size: 15px;
+      margin: 4px;
       border: none;
       background: #007bff;
       color: white;
@@ -161,20 +167,22 @@
   </style>
 </head>
 <body>
-
 <div class="toggle-mode" onclick="document.body.classList.toggle('dark')">🌓 Modo oscuro</div>
-
-<h2>Máquina de Turing: Suma Binaria</h2>
-<input id="entrada" placeholder="Ej: 1101#101" />
-<br>
-<button onclick="startSimulation()">Iniciar Simulación</button>
-<div id="head" class="head"></div>
-<div class="tape" id="tape"></div>
-<div class="label-row" id="labels"></div>
-<div id="log"></div>
-
+<div id="container">
+  <h2>Máquina de Turing: Suma Binaria</h2>
+  <input id="entrada" placeholder="Ej: 1101#101" />
+  <br>
+  <button onclick="startSimulation()">Cargar Simulación</button>
+  <button onclick="stepBackward()">⏮️ Anterior</button>
+  <button onclick="stepForward()">⏭️ Siguiente</button>
+  <button onclick="autoPlay()">▶️ Reproducir</button>
+  <div id="head" class="head"></div>
+  <div class="tape" id="tape"></div>
+  <div class="label-row" id="labels"></div>
+  <div id="log"></div>
+</div>
 <script>
-  let steps = [], sepIndex = 0, writeStart = 0;
+  let steps = [], sepIndex = 0, writeStart = 0, currentStep = 0, interval = null;
 
   function recordStep(pos, tapeSnapshot, info) {
     steps.push({ pos, tape: [...tapeSnapshot], info });
@@ -188,11 +196,9 @@
     let bEnd = tape.findIndex((ch, i) => i > bStart && ch === '_') - 1;
     if (bEnd < 0) bEnd = tape.length - 11 - 1;
     let bPtr = bEnd;
-
     let carry = 0;
     let writePos = tape.length - 2;
     writeStart = tape.length;
-
     steps = [];
 
     while (aPtr >= 0 || bPtr > sepIndex || carry) {
@@ -204,15 +210,12 @@
 
       tape[writePos] = sumBit.toString();
       if (writePos < writeStart) writeStart = writePos;
-
       recordStep(writePos, tape, `A=${bitA}, B=${bitB}, Carry=${carry}, Total=${total}, Write=${sumBit} → posición ${writePos}`);
 
       aPtr--;
       bPtr--;
       writePos--;
     }
-
-    return { tape, writeStart };
   }
 
   function drawTape(tapeState, headPos, info) {
@@ -227,17 +230,11 @@
       cell.className = 'cell';
       if (idx === headPos) cell.classList.add('highlight');
 
-      if (val === '_') {
-        cell.dataset.role = 'empty';
-      } else if (val === '#') {
-        cell.dataset.role = 'sep';
-      } else if (idx > sep && idx < writeStart) {
-        cell.dataset.role = 'input-b';
-      } else if (idx < sep) {
-        cell.dataset.role = 'input-a';
-      } else if (idx >= writeStart) {
-        cell.dataset.role = 'result';
-      }
+      if (val === '_') cell.dataset.role = 'empty';
+      else if (val === '#') cell.dataset.role = 'sep';
+      else if (idx > sep && idx < writeStart) cell.dataset.role = 'input-b';
+      else if (idx < sep) cell.dataset.role = 'input-a';
+      else if (idx >= writeStart) cell.dataset.role = 'result';
 
       cell.textContent = val;
       tapeDiv.appendChild(cell);
@@ -272,37 +269,45 @@
       alert("Entrada inválida. Usa el formato binario a#b (ej: 1101#101)");
       return;
     }
+    simulate(input);
+    currentStep = 0;
+    drawStep();
+  }
 
-    const { tape } = simulate(input);
-    let i = 0;
-    document.getElementById('log').innerHTML = "";
-
-    function nextStep() {
-      if (i < steps.length) {
-        const step = steps[i];
-        drawTape(step.tape, step.pos, `Paso ${i + 1}: ${step.info}`);
-        i++;
-        setTimeout(nextStep, 700);
-      } else {
-        const tapeFinal = steps[steps.length - 1].tape;
-        let resultBits = [];
-        for (let j = writeStart; j < tapeFinal.length; j++) {
-          if (tapeFinal[j] === '0' || tapeFinal[j] === '1') {
-            resultBits.push(tapeFinal[j]);
-          }
-        }
-
-        const resultBinary = resultBits.join('').replace(/^0+/, '') || '0';
-        const resultDecimal = parseInt(resultBinary, 2);
-
-        drawTape(tapeFinal, -1, `✅ Resultado final en la cinta: ${resultBinary} (decimal: ${resultDecimal})`);
-        renderLog();
-      }
+  function drawStep() {
+    if (currentStep >= 0 && currentStep < steps.length) {
+      const step = steps[currentStep];
+      drawTape(step.tape, step.pos, `Paso ${currentStep + 1}: ${step.info}`);
+    } else if (currentStep === steps.length) {
+      const tapeFinal = steps[steps.length - 1].tape;
+      const resultBits = tapeFinal.slice(writeStart).filter(x => x === '0' || x === '1');
+      const resultBinary = resultBits.join('').replace(/^0+/, '') || '0';
+      const resultDecimal = parseInt(resultBinary, 2);
+      drawTape(tapeFinal, -1, `✅ Resultado final en la cinta: ${resultBinary} (decimal: ${resultDecimal})`);
+      renderLog();
     }
+  }
 
-    nextStep();
+  function stepForward() {
+    if (currentStep < steps.length) currentStep++;
+    drawStep();
+  }
+
+  function stepBackward() {
+    if (currentStep > 0) currentStep--;
+    drawStep();
+  }
+
+  function autoPlay() {
+    if (interval) clearInterval(interval);
+    interval = setInterval(() => {
+      if (currentStep < steps.length) {
+        stepForward();
+      } else {
+        clearInterval(interval);
+      }
+    }, 700);
   }
 </script>
-
 </body>
 </html>
